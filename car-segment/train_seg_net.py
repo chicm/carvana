@@ -596,7 +596,7 @@ def run_ensemble():
     print('done')
         
 
-def run_submit(predict_name):                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+def run_submit(predict_name, out_file):                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
     test_dataset = KgCarDataset( 'test%dx%d_100064'%(CARVANA_H,CARVANA_W),
                                   is_label=False,
                                   is_preload=False,  #True,
@@ -632,7 +632,13 @@ def run_submit(predict_name):
                 #-----------------------------
 
             #    prob = p[m]
-            prob = cv2.resize(prob,(CARVANA_WIDTH,CARVANA_HEIGHT))
+            #INTER_NEAREST - a nearest-neighbor interpolation
+            #INTER_LINEAR - a bilinear interpolation (used by default)
+            #INTER_AREA - resampling using pixel area relation. It may be a preferred method for image decimation, as it gives moire’-free results. But when the image is zoomed, it is similar to the INTER_NEAREST method.
+            #INTER_CUBIC - a bicubic interpolation over 4x4 pixel neighborhood
+            #INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood
+
+            prob = cv2.resize(prob,(CARVANA_WIDTH,CARVANA_HEIGHT), interpolation=cv2.INTER_NEAREST)
             mask = prob>threshold
             rle = run_length_encode(mask)
             #rles.append(rle)
@@ -653,7 +659,7 @@ def run_submit(predict_name):
 
     start = timer()
     #dir_name = out_dir.split('/')[-1]
-    gz_file  = OUT_DIR + '/submit/ensemble.csv.gz'
+    gz_file  = OUT_DIR + '/submit/' + out_file
     df = pd.DataFrame({ 'img' : csv_names, 'rle_mask' : rles})
     df.to_csv(gz_file, index=False, compression='gzip')
     #log.write('\tdf.to_csv time = %f min\n'%((timer() - start) / 60)) #3 min
@@ -665,7 +671,7 @@ from matplotlib import pyplot as plt
 #decode and check
 def run_check_submit_csv():
 
-    gz_file = OUT_DIR + '/submit/ensemble.csv.gz'
+    gz_file = OUT_DIR + '/submit/nearest.csv.gz'
     df = pd.read_csv(gz_file, compression='gzip') #, header=0, sep=' ', quotechar='"', error_bad_lines=False)
 
     indices =[0,1,10,22000-1,52000,52000+1,100064-1]
@@ -727,7 +733,7 @@ if __name__ == '__main__':
     #run_train()
     #run_predict()
     #run_ensemble()
-    run_submit('ensemble')
+    run_submit('final', 'nearest.csv.gz')
     #run_check_submit_csv()
 
     print('\nsucess!')
