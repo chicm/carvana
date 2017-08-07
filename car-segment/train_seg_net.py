@@ -5,7 +5,7 @@ from net.segmentation.my_unet import SoftDiceLoss, BCELoss2d, UNet_double_1024_5
 from net.tool import *
 import bcolz
 
-OUT_DIR = '/home/chicm/ml/kgdata/carvana/results/single/UNet_double_1024_5'
+OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results'
 BLOCK_NUM = 51
 
 ## experiment setting here ----------------------------------------------------
@@ -246,8 +246,8 @@ def run_train():
 
 
     out_dir  = OUT_DIR
-    #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    initial_checkpoint = '/home/chicm/ml/kgdata/carvana/results/single/UNet_double_1024_5/checkpoint/064.pth'
+    initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
+    #initial_checkpoint = '/home/chicm/ml/kgdata/carvana/results/single/UNet_double_1024_5/checkpoint/064.pth'
     #
 
 
@@ -266,7 +266,7 @@ def run_train():
     log.open(out_dir+'/log.train.txt',mode='a')
     log.write('\n--- [START %s] %s\n\n' % (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '-' * 64))
     log.write('** some project setting **\n')
-    log.write('\tSEED    = %u\n' % SEED)
+    #log.write('\tSEED    = %u\n' % SEED)
     log.write('\tfile    = %s\n' % __file__)
     log.write('\tout_dir = %s\n' % out_dir)
     log.write('\n')
@@ -277,10 +277,10 @@ def run_train():
     ## dataset ----------------------------------------
     log.write('** dataset setting **\n')
     batch_size = 8
-    train_dataset = KgCarDataset( 'train%dx%d_v0_4320'%(CARVANA_H,CARVANA_W),
+    train_dataset = KgCarDataset( 'train%dx%d_v0_4848'%(CARVANA_H,CARVANA_W),
                                   #'train%dx%d_5088'%(CARVANA_H,CARVANA_W),   #'train128x128_5088',  #'train_5088'
                                 transform=[
-                                    lambda x,y:  randomShiftScaleRotate2(x,y,shift_limit=(-0.0625,0.0625), scale_limit=(-0.1,0.1), rotate_limit=(-0,0)),
+                                    lambda x,y:  randomShiftScaleRotate2(x,y,shift_limit=(-0.08,0.08), scale_limit=(-0.1,0.1), rotate_limit=(-0,0)),
                                     #lambda x,y:  randomShiftScaleRotate2(x,y,shift_limit=(-0.0625,0.0625), scale_limit=(-0.0,0.0),  aspect_limit = (1-1/1.2   ,1.2-1), rotate_limit=(0,0)),
                                     lambda x,y:  randomHorizontalFlip2(x,y),
                                 ],
@@ -296,7 +296,7 @@ def run_train():
 
 
 
-    valid_dataset = KgCarDataset( 'valid%dx%d_v0_768'%(CARVANA_H,CARVANA_W),
+    valid_dataset = KgCarDataset( 'valid%dx%d_v0_240'%(CARVANA_H,CARVANA_W),
                                 is_label=True,
                                 is_preload=False)
     valid_loader  = DataLoader(
@@ -339,7 +339,7 @@ def run_train():
     ## optimiser ----------------------------------
     optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)  ###0.0005
 
-    num_epoches = 80  #100
+    num_epoches = 100  #100
     it_print    = 1   #20
     it_smooth   = 20
     epoch_test  = 5
@@ -381,10 +381,16 @@ def run_train():
         #---learning rate schduler ------------------------------
         # lr = LR.get_rate(epoch, num_epoches)
         # if lr<0 : break
-        if epoch>=50:
+        if epoch>=15:
+            adjust_learning_rate(optimizer, lr=0.001)
+        elif epoch>=25:
+            adjust_learning_rate(optimizer, lr=0.0005)
+        elif epoch>=50:
             adjust_learning_rate(optimizer, lr=0.0001)
-        if epoch>=num_epoches-2:
-            adjust_learning_rate(optimizer, lr=0.0001)
+        elif epoch>=num_epoches-5:
+            adjust_learning_rate(optimizer, lr=0.00001)
+        else:
+            pass
 
         rate =  get_learning_rate(optimizer)[0] #check
         #--------------------------------------------------------
@@ -569,13 +575,13 @@ def predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR):
     del net
 
 def run_predict():
-    predict(model_file=OUT_DIR +'/snap/049.pth', out_dir=OUT_DIR+'/submit/049')
-    predict(model_file=OUT_DIR +'/snap/064.pth', out_dir=OUT_DIR+'/submit/064')
-    predict(model_file=OUT_DIR +'/snap/079.pth', out_dir=OUT_DIR+'/submit/079')
+    #predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR+'/submit/final')
+    predict(model_file=OUT_DIR +'/snap/075.pth', out_dir=OUT_DIR+'/submit/075')
+    predict(model_file=OUT_DIR +'/snap/070.pth', out_dir=OUT_DIR+'/submit/070')
 
 
 def run_ensemble():
-    pred_dirs = [OUT_DIR + '/submit/049', OUT_DIR+'/submit/064', OUT_DIR+'/submit/079']
+    pred_dirs = [OUT_DIR + '/submit/070', OUT_DIR+'/submit/075', OUT_DIR+'/submit/final']
     dest_dir = OUT_DIR + '/submit/ensemble'
 
     for i in range(BLOCK_NUM):
@@ -590,7 +596,7 @@ def run_ensemble():
     print('done')
         
 
-def run_submit():                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+def run_submit(predict_name):                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
     test_dataset = KgCarDataset( 'test%dx%d_100064'%(CARVANA_H,CARVANA_W),
                                   is_label=False,
                                   is_preload=False,  #True,
@@ -606,7 +612,7 @@ def run_submit():
     rle_index = 0
     start = timer()
     for block_index in range(BLOCK_NUM):
-        probs = load_array(OUT_DIR + '/submit/ensemble/probs-part%02d'%block_index)
+        probs = load_array(OUT_DIR + '/submit/%s/probs-part%02d'%(predict_name, block_index))
         print(probs.shape)
         block_start = timer()
         for i,prob in enumerate(probs):
@@ -721,7 +727,7 @@ if __name__ == '__main__':
     #run_train()
     #run_predict()
     #run_ensemble()
-    #run_submit()
-    run_check_submit_csv()
+    run_submit('ensemble')
+    #run_check_submit_csv()
 
     print('\nsucess!')

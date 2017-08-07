@@ -39,7 +39,7 @@ def split_train_valid_list():
     num_ids = len(ids)
     print(num_ids) #318
 
-    num_valid=48  #(15%)
+    num_valid=15  #(15%)
     num_train=num_ids-num_valid
     print(num_valid,num_train) #48,270
 
