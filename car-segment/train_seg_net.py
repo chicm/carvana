@@ -1,11 +1,11 @@
 from common import *
 from submit import *
 from dataset.carvana_cars import *
-from net.segmentation.my_unet import SoftDiceLoss, BCELoss2d, UNet_double_1024_5 as Net
+from net.segmentation.my_unet import SoftDiceLoss, BCELoss2d, UNet512_2 as Net #UNet_double_1024_5 as Net
 from net.tool import *
 import bcolz
 
-OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results'
+OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_960'
 BLOCK_NUM = 51
 
 ## experiment setting here ----------------------------------------------------
@@ -124,7 +124,7 @@ def predict_in_blocks(net, test_loader, out_dir, block_size=2000):
     for n in range(0, test_num, block_size):
         M = block_size if n+block_size < test_num else test_num-n
         print('n=%d, M=%d'%(n,M) )
-        p = np.zeros((M, 2*H, 2*W),np.uint8)
+        p = np.zeros((M, H, W),np.uint8)
         c = np.zeros((M),np.int64)
         start = timer()
         for m in range(0, M, batch_size):
@@ -142,7 +142,7 @@ def predict_in_blocks(net, test_loader, out_dir, block_size=2000):
             logits = net(images)
             probs  = F.sigmoid(logits)
 
-            probs = probs.data.cpu().numpy().reshape(-1, 2*H, 2*W)
+            probs = probs.data.cpu().numpy().reshape(-1, H, W)
             probs = probs*255
             p[m : m+batch_size] = probs
 
@@ -246,8 +246,8 @@ def run_train():
 
 
     out_dir  = OUT_DIR
-    initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    #initial_checkpoint = '/home/chicm/ml/kgdata/carvana/results/single/UNet_double_1024_5/checkpoint/064.pth'
+    #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
+    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_960/checkpoint/005.pth'
     #
 
 
@@ -276,8 +276,8 @@ def run_train():
 
     ## dataset ----------------------------------------
     log.write('** dataset setting **\n')
-    batch_size = 8
-    train_dataset = KgCarDataset( 'train%dx%d_v0_4848'%(CARVANA_H,CARVANA_W),
+    batch_size = 4
+    train_dataset = KgCarDataset( 'train_960_4848',
                                   #'train%dx%d_5088'%(CARVANA_H,CARVANA_W),   #'train128x128_5088',  #'train_5088'
                                 transform=[
                                     lambda x,y:  randomShiftScaleRotate2(x,y,shift_limit=(-0.08,0.08), scale_limit=(-0.1,0.1), rotate_limit=(-0,0)),
@@ -296,7 +296,7 @@ def run_train():
 
 
 
-    valid_dataset = KgCarDataset( 'valid%dx%d_v0_240'%(CARVANA_H,CARVANA_W),
+    valid_dataset = KgCarDataset( 'valid_960_240',
                                 is_label=True,
                                 is_preload=False)
     valid_loader  = DataLoader(
@@ -344,7 +344,7 @@ def run_train():
     it_smooth   = 20
     epoch_test  = 5
     epoch_valid = 1
-    epoch_save  = [0,3,5,10,15,20,25,35,40,45,50,60,70,75,num_epoches-1]
+    epoch_save  = [0,3,5,10,15,20,25,35,40,45,50,60,70,75,80,85,90,95,num_epoches-1]
 
     ## resume from previous ----------------------------------
     start_epoch=0
@@ -387,7 +387,7 @@ def run_train():
             adjust_learning_rate(optimizer, lr=0.0005)
         elif epoch>=50:
             adjust_learning_rate(optimizer, lr=0.0001)
-        elif epoch>=num_epoches-5:
+        elif epoch>=80:
             adjust_learning_rate(optimizer, lr=0.00001)
         else:
             pass
@@ -528,9 +528,9 @@ def predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR):
 
     ## dataset ----------------------------
     log.write('** dataset setting **\n')
-    batch_size = 16
+    batch_size = 8
 
-    test_dataset = KgCarDataset( 'test%dx%d_100064'%(CARVANA_H,CARVANA_W),
+    test_dataset = KgCarDataset( 'test960x640',
                                   is_label=False,
                                   is_preload=False,  #True,
                                )
@@ -575,9 +575,9 @@ def predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR):
     del net
 
 def run_predict():
-    #predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR+'/submit/final')
-    predict(model_file=OUT_DIR +'/snap/075.pth', out_dir=OUT_DIR+'/submit/075')
-    predict(model_file=OUT_DIR +'/snap/070.pth', out_dir=OUT_DIR+'/submit/070')
+    predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR+'/submit/final')
+    #predict(model_file=OUT_DIR +'/snap/075.pth', out_dir=OUT_DIR+'/submit/075')
+    #predict(model_file=OUT_DIR +'/snap/070.pth', out_dir=OUT_DIR+'/submit/070')
 
 
 def run_ensemble():
@@ -597,7 +597,7 @@ def run_ensemble():
         
 
 def run_submit(predict_name):                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
-    test_dataset = KgCarDataset( 'test%dx%d_100064'%(CARVANA_H,CARVANA_W),
+    test_dataset = KgCarDataset( 'test960x640',
                                   is_label=False,
                                   is_preload=False,  #True,
                                )
@@ -653,7 +653,7 @@ def run_submit(predict_name):
 
     start = timer()
     #dir_name = out_dir.split('/')[-1]
-    gz_file  = OUT_DIR + '/submit/ensemble.csv.gz'
+    gz_file  = OUT_DIR + '/submit/{}.csv.gz'.format(predict_name)
     df = pd.DataFrame({ 'img' : csv_names, 'rle_mask' : rles})
     df.to_csv(gz_file, index=False, compression='gzip')
     #log.write('\tdf.to_csv time = %f min\n'%((timer() - start) / 60)) #3 min
@@ -727,7 +727,7 @@ if __name__ == '__main__':
     #run_train()
     #run_predict()
     #run_ensemble()
-    run_submit('ensemble')
+    run_submit('final')
     #run_check_submit_csv()
 
     print('\nsucess!')

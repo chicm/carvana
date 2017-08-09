@@ -6,8 +6,8 @@ CARVANA_DIR       = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017'
 CARVANA_NUM_VIEWS = 16
 CARVANA_HEIGHT = 1280
 CARVANA_WIDTH  = 1918
-CARVANA_H = 512
-CARVANA_W = 512
+CARVANA_H = 640 #512
+CARVANA_W = 960 #512
 
 
 
@@ -138,10 +138,10 @@ class KgCarDataset(Dataset):
         #read labels
         labels = None
         if is_label==True:
-            labels = np.zeros((num,2*height,2*width),dtype=np.float32)
+            labels = np.zeros((num,height,width),dtype=np.float32)
             for n in range(num):
                 name = names[n]
-                name = name.replace('%dx%d'%(height,width),'%dx%d'%(2*height,2*width))
+                #name = name.replace('%dx%d'%(height,width),'%dx%d'%(2*height,2*width))
 
                 mask_file = CARVANA_DIR + '/annotations/%s_mask.png'%(name)
                 mask = cv2.imread(mask_file,cv2.IMREAD_GRAYSCALE)

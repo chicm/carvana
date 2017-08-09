@@ -7,7 +7,8 @@ def run_make_small_images(stage):
 
     img_dir  = CARVANA_DIR + '/images/'+stage
 
-    H,W = 512, 512
+    #H,W = 512, 512
+    H,W = 640, 960
     small_dir  = img_dir + '%dx%d'%(W,H)
     os.makedirs(small_dir,exist_ok=True)
 
@@ -30,7 +31,8 @@ def run_make_small_masks():
 
     img_dir = CARVANA_DIR + '/annotations/train'  # read all annotations
 
-    H,W = 1024, 1024
+    #H,W = 1024, 1024
+    H,W = 640, 960
     small_dir  = img_dir + '%dx%d'%(W,H)
     os.makedirs(small_dir,exist_ok=True)
 
