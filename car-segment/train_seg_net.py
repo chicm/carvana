@@ -291,7 +291,7 @@ def run_train():
                         sampler = RandomSampler(train_dataset),  #ProbSampler(train_dataset),  #ProbSampler(train_dataset,SAMPLING_PROB),  # #FixedSampler(train_dataset,list(range(batch_size))),  ##
                         batch_size  = batch_size,
                         drop_last   = True,
-                        num_workers = 3,
+                        num_workers = 4,
                         pin_memory  = True)
 
 
@@ -304,7 +304,7 @@ def run_train():
                         sampler = SequentialSampler(valid_dataset),
                         batch_size  = batch_size,
                         drop_last   = False,
-                        num_workers = 3,
+                        num_workers = 4,
                         pin_memory  = True)
 
 
@@ -344,7 +344,7 @@ def run_train():
     it_smooth   = 20
     epoch_test  = 5
     epoch_valid = 1
-    epoch_save  = [0,3,5,10,15,20,25,35,40,45,50,60,70,75,num_epoches-1]
+    epoch_save  = [0,3,5,10,15,20,25,35,40,45,50,60,70,75,80,85,90,95,num_epoches-1]
 
     ## resume from previous ----------------------------------
     start_epoch=0
@@ -374,6 +374,9 @@ def run_train():
     valid_acc  = np.nan
     time = 0
     start0 = timer()
+
+    best_val_acc = 0
+
     for epoch in range(start_epoch, num_epoches):  # loop over the dataset multiple times
         #print ('epoch=%d'%epoch)
         start = timer()
@@ -454,8 +457,6 @@ def run_train():
         if epoch % epoch_valid == 0 or epoch == 0 or epoch == num_epoches-1:
             net.eval()
             valid_predictions, valid_loss, valid_acc = predict_and_evaluate(net, valid_loader)
-
-
             print('\r',end='',flush=True)
             log.write('%5.1f   %5d    %0.4f   |  %0.4f  %0.4f | %0.4f  %6.4f | %0.4f  %6.4f  |  %3.1f min \n' % \
                     (epoch + 1, it + 1, rate, smooth_loss, smooth_acc, train_loss, train_acc, valid_loss, valid_acc, time))
@@ -490,6 +491,9 @@ def run_train():
                 'optimizer' : optimizer.state_dict(),
                 'epoch'     : epoch,
             }, out_dir +'/checkpoint/%03d.pth'%epoch)
+        elif valid_acc > best_val_acc:
+            torch.save(net.state_dict(),out_dir +'/snap/%03d.pth'%epoch)
+            best_val_acc = valid_acc
             ## https://github.com/pytorch/examples/blob/master/imagenet/main.py
 
 
@@ -575,13 +579,13 @@ def predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR):
     del net
 
 def run_predict():
-    #predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR+'/submit/final')
-    predict(model_file=OUT_DIR +'/snap/075.pth', out_dir=OUT_DIR+'/submit/075')
-    predict(model_file=OUT_DIR +'/snap/070.pth', out_dir=OUT_DIR+'/submit/070')
+    predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR+'/submit/final')
+    predict(model_file=OUT_DIR +'/snap/095.pth', out_dir=OUT_DIR+'/submit/095')
+    predict(model_file=OUT_DIR +'/snap/085.pth', out_dir=OUT_DIR+'/submit/085')
 
 
 def run_ensemble():
-    pred_dirs = [OUT_DIR + '/submit/070', OUT_DIR+'/submit/075', OUT_DIR+'/submit/final']
+    pred_dirs = [OUT_DIR + '/submit/085', OUT_DIR+'/submit/095', OUT_DIR+'/submit/final']
     dest_dir = OUT_DIR + '/submit/ensemble'
 
     for i in range(BLOCK_NUM):
@@ -726,7 +730,7 @@ if __name__ == '__main__':
 
     #run_train()
     #run_predict()
-    #run_ensemble()
+    run_ensemble()
     run_submit('ensemble')
     #run_check_submit_csv()
 
