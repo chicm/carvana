@@ -246,8 +246,8 @@ def run_train():
 
 
     out_dir  = OUT_DIR
-    initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    #initial_checkpoint = '/home/chicm/ml/kgdata/carvana/results/single/UNet_double_1024_5/checkpoint/064.pth'
+    #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
+    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results/checkpoint/099.pth'
     #
 
 
@@ -339,7 +339,7 @@ def run_train():
     ## optimiser ----------------------------------
     optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)  ###0.0005
 
-    num_epoches = 100  #100
+    num_epoches = 150  #100
     it_print    = 1   #20
     it_smooth   = 20
     epoch_test  = 5
@@ -492,7 +492,7 @@ def run_train():
                 'epoch'     : epoch,
             }, out_dir +'/checkpoint/%03d.pth'%epoch)
         elif valid_acc > best_val_acc:
-            torch.save(net.state_dict(),out_dir +'/snap/%03d.pth'%epoch)
+            torch.save(net.state_dict(),out_dir +'/snap/best.pth')
             best_val_acc = valid_acc
             ## https://github.com/pytorch/examples/blob/master/imagenet/main.py
 
@@ -728,10 +728,10 @@ def run_check_submit_csv():
 if __name__ == '__main__':
     print( '%s: calling main function ... ' % os.path.basename(__file__))
 
-    #run_train()
+    run_train()
     #run_predict()
-    run_ensemble()
-    run_submit('ensemble')
+    #run_ensemble()
+    #run_submit('ensemble')
     #run_check_submit_csv()
 
     print('\nsucess!')
