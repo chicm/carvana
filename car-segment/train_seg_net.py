@@ -1,11 +1,11 @@
 from common import *
 from submit import *
 from dataset.carvana_cars import *
-from net.segmentation.my_unet import SoftDiceLoss, BCELoss2d, UNet_double_1024_5 as Net
+from net.segmentation.my_unet import SoftDiceLoss, BCELoss2d, UNet512_2 as Net
 from net.tool import *
 import bcolz
 
-OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results'
+OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024'
 BLOCK_NUM = 51
 
 ## experiment setting here ----------------------------------------------------
@@ -124,7 +124,7 @@ def predict_in_blocks(net, test_loader, out_dir, block_size=2000):
     for n in range(0, test_num, block_size):
         M = block_size if n+block_size < test_num else test_num-n
         print('n=%d, M=%d'%(n,M) )
-        p = np.zeros((M, 2*H, 2*W),np.uint8)
+        p = np.zeros((M, H, W),np.uint8)
         c = np.zeros((M),np.int64)
         start = timer()
         for m in range(0, M, batch_size):
@@ -142,7 +142,7 @@ def predict_in_blocks(net, test_loader, out_dir, block_size=2000):
             logits = net(images)
             probs  = F.sigmoid(logits)
 
-            probs = probs.data.cpu().numpy().reshape(-1, 2*H, 2*W)
+            probs = probs.data.cpu().numpy().reshape(-1, H, W)
             probs = probs*255
             p[m : m+batch_size] = probs
 
@@ -165,7 +165,7 @@ def predict_and_evaluate(net, test_loader ):
 
     num = len(test_dataset)
     H, W = CARVANA_H, CARVANA_W
-    predictions  = np.zeros((num, 2*H, 2*W),np.float32)
+    predictions  = np.zeros((num, H, W),np.float32)
 
     test_acc  = 0
     test_loss = 0
@@ -189,7 +189,7 @@ def predict_and_evaluate(net, test_loader ):
         test_acc  += batch_size*acc.data[0]
         start = test_num-batch_size
         end   = test_num
-        predictions[start:end] = probs.data.cpu().numpy().reshape(-1, 2*H, 2*W)
+        predictions[start:end] = probs.data.cpu().numpy().reshape(-1, H, W)
 
     assert(test_num == len(test_loader.sampler))
 
@@ -247,7 +247,8 @@ def run_train():
 
     out_dir  = OUT_DIR
     #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results/checkpoint/099.pth'
+    #initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results/checkpoint/099.pth'
+    initial_checkpoint = None
     #
 
 
@@ -276,7 +277,7 @@ def run_train():
 
     ## dataset ----------------------------------------
     log.write('** dataset setting **\n')
-    batch_size = 8
+    batch_size = 2
     train_dataset = KgCarDataset( 'train%dx%d_v0_4848'%(CARVANA_H,CARVANA_W),
                                   #'train%dx%d_5088'%(CARVANA_H,CARVANA_W),   #'train128x128_5088',  #'train_5088'
                                 transform=[
@@ -291,7 +292,7 @@ def run_train():
                         sampler = RandomSampler(train_dataset),  #ProbSampler(train_dataset),  #ProbSampler(train_dataset,SAMPLING_PROB),  # #FixedSampler(train_dataset,list(range(batch_size))),  ##
                         batch_size  = batch_size,
                         drop_last   = True,
-                        num_workers = 4,
+                        num_workers = 2,
                         pin_memory  = True)
 
 
@@ -304,7 +305,7 @@ def run_train():
                         sampler = SequentialSampler(valid_dataset),
                         batch_size  = batch_size,
                         drop_last   = False,
-                        num_workers = 4,
+                        num_workers = 2,
                         pin_memory  = True)
 
 
@@ -339,7 +340,7 @@ def run_train():
     ## optimiser ----------------------------------
     optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)  ###0.0005
 
-    num_epoches = 150  #100
+    num_epoches = 100  #100
     it_print    = 1   #20
     it_smooth   = 20
     epoch_test  = 5
@@ -390,6 +391,8 @@ def run_train():
             adjust_learning_rate(optimizer, lr=0.0005)
         elif epoch>=50:
             adjust_learning_rate(optimizer, lr=0.0001)
+        elif epoch>=80:
+            adjust_learning_rate(optimizer, lr=0.00001)
         elif epoch>=num_epoches-5:
             adjust_learning_rate(optimizer, lr=0.00001)
         else:
@@ -532,7 +535,7 @@ def predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR):
 
     ## dataset ----------------------------
     log.write('** dataset setting **\n')
-    batch_size = 16
+    batch_size = 4
 
     test_dataset = KgCarDataset( 'test%dx%d_100064'%(CARVANA_H,CARVANA_W),
                                   is_label=False,
@@ -728,10 +731,10 @@ def run_check_submit_csv():
 if __name__ == '__main__':
     print( '%s: calling main function ... ' % os.path.basename(__file__))
 
-    #run_train()
-    run_predict()
+    run_train()
+    #run_predict()
     #run_ensemble()
-    run_submit('best')
+    #run_submit('best')
     #run_check_submit_csv()
 
     print('\nsucess!')
