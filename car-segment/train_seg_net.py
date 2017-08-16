@@ -416,13 +416,13 @@ def run_train():
             probs = F.sigmoid(logits)
             masks = (probs>0.5).float()
 
-
-            #backward
             loss = criterion(logits, labels)
-            optimizer.zero_grad()
             loss.backward()
-            optimizer.step()
-
+            #backward
+            if (it + 1) % 8 == 0:
+                optimizer.step()
+                optimizer.zero_grad()
+                
             # print statistics
             acc  = dice_loss(masks, labels)
 
