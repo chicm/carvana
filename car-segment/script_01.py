@@ -7,7 +7,7 @@ def run_make_small_images(stage):
 
     img_dir  = CARVANA_DIR + '/images/'+stage
 
-    H,W = 512, 512
+    H,W = 1024, 1024
     small_dir  = img_dir + '%dx%d'%(W,H)
     os.makedirs(small_dir,exist_ok=True)
 
@@ -18,7 +18,7 @@ def run_make_small_images(stage):
 
         img_file = img_list[n]
         img = cv2.imread(img_file)
-        img = cv2.resize(img,(W,H))
+        img = cv2.resize(img,(W,H),interpolation=cv2.INTER_LINEAR)
         save_file = img_file.replace(img_dir, small_dir)
         cv2.imwrite(save_file,img)
 
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     print( '%s: calling main function ... ' % os.path.basename(__file__))
 
     #run_make_small_masks()
-    #run_make_small_images('train')
+    run_make_small_images('train')
     run_make_small_images('test')
     #run_remove_background()
 
