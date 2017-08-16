@@ -579,9 +579,9 @@ def predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR):
     del net
 
 def run_predict():
-    predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR+'/submit/final')
-    predict(model_file=OUT_DIR +'/snap/095.pth', out_dir=OUT_DIR+'/submit/095')
-    predict(model_file=OUT_DIR +'/snap/085.pth', out_dir=OUT_DIR+'/submit/085')
+    predict(model_file=OUT_DIR +'/snap/best.pth', out_dir=OUT_DIR+'/submit/best')
+    #predict(model_file=OUT_DIR +'/snap/095.pth', out_dir=OUT_DIR+'/submit/095')
+    #predict(model_file=OUT_DIR +'/snap/085.pth', out_dir=OUT_DIR+'/submit/085')
 
 
 def run_ensemble():
@@ -657,7 +657,7 @@ def run_submit(predict_name):
 
     start = timer()
     #dir_name = out_dir.split('/')[-1]
-    gz_file  = OUT_DIR + '/submit/ensemble.csv.gz'
+    gz_file  = OUT_DIR + '/submit/{}.csv.gz'.format(predict_name)
     df = pd.DataFrame({ 'img' : csv_names, 'rle_mask' : rles})
     df.to_csv(gz_file, index=False, compression='gzip')
     #log.write('\tdf.to_csv time = %f min\n'%((timer() - start) / 60)) #3 min
@@ -728,10 +728,10 @@ def run_check_submit_csv():
 if __name__ == '__main__':
     print( '%s: calling main function ... ' % os.path.basename(__file__))
 
-    run_train()
-    #run_predict()
+    #run_train()
+    run_predict()
     #run_ensemble()
-    #run_submit('ensemble')
+    run_submit('best')
     #run_check_submit_csv()
 
     print('\nsucess!')
