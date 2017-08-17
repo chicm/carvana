@@ -1,7 +1,7 @@
 from common import *
 from submit import *
 from dataset.carvana_cars import *
-from net.segmentation.myunet1024 import SoftDiceLoss, BCELoss2d, UNet1024 as Net
+from net.segmentation.myunet1024 import SoftDiceLoss, BCELoss2d, WeightedBCELoss2d, WeightedSoftDiceLoss, UNet1024 as Net
 from net.tool import *
 import bcolz
 
@@ -9,15 +9,27 @@ OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024'
 BLOCK_NUM = 51
 
 ## experiment setting here ----------------------------------------------------
-def criterion(logits, labels):
+def criterion_old(logits, labels):
     #l = BCELoss2d()(logits, labels)
     l = BCELoss2d()(logits, labels) + SoftDiceLoss()(logits, labels)
     return l
 
 
-
 ## experiment setting here ----------------------------------------------------
+def criterion(logits, labels, is_weight=True):
+    a = F.avg_pool2d(labels, kernel_size=11, padding=5, stride=1)
+    ind = a.ge(0.01) * a.le(0.99)
+    ind = ind.float()
+    weights = Variable(torch.tensor.torch.ones(a.size())).cuda()
+    
+    if is_weight:
+        w0 = weights.data.sum()
+        weights = weights + ind * 2
+        w1 = weights.data.sum()
+        weights = weights / w1 * w0
 
+    l = WeightedBCELoss2d()(logits, labels, weights) + WeightedSoftDiceLoss()(logits, labels, weights)
+    return l
 
 
 #https://github.com/jocicmarko/ultrasound-nerve-segmentation/blob/master/train.py
@@ -246,7 +258,7 @@ def run_train():
 
     out_dir  = OUT_DIR
     #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024/checkpoint/040_0.99460.pth'
+    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024/checkpoint/041_0.99473.pth'
     #initial_checkpoint = None
     #
 

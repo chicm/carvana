@@ -6,6 +6,34 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class WeightedBCELoss2d(nn.Module):
+    def __init__(self):
+        super(WeightedBCELoss2d, self).__init__()
+
+    def forward(self, logits, labels, weights):
+        w = weights.view(-1)
+        z = logits.view(-1)
+        t = labels.view(-1)
+        loss = w*z.clamp(min=0) - w*z*t + w*torch.log(1 + torch.exp(-z.abs()))
+        loss = loss.sum() / w.sum()
+        return loss
+
+class WeightedSoftDiceLoss(nn.Module):
+    def __init__(self):
+        super(WeightedSoftDiceLoss,self).__init__()
+
+    def forward(self, logits, labels, weights):
+        probs = F.sigmoid(logits)
+        num   = labels.size(0)
+        w     = (weights).view(num, -1)
+        w2    = w*w
+        m1    = (probs).view(num, -1)
+        m2    = (labels).view(num, -1)
+        intersection = (m1 * m2)
+        score = 2. * ((w2*intersection).sum(1)+1) / ((w2*m1).sum(1) + (w2*m2).sum(1)+1)
+        score = 1 - score.sum() / num
+        return score
+
 #  https://github.com/bermanmaxim/jaccardSegment/blob/master/losses.py
 #  https://discuss.pytorch.org/t/solved-what-is-the-correct-way-to-implement-custom-loss-function/3568/4
 class CrossEntropyLoss2d(nn.Module):
@@ -66,7 +94,6 @@ def make_conv_bn_relu(in_channels, out_channels, kernel_size=3, stride=1, paddin
         nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
         nn.BatchNorm2d(out_channels),
         nn.ReLU(inplace=True),
-        #nn.PReLU()
     ]
 # based on https://github.com/jocicmarko/ultrasound-nerve-segmentation/blob/master/train.py
 
