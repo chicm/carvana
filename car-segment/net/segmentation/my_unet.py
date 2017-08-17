@@ -1,6 +1,6 @@
 # unet from scratch
 
-from common import *
+#from common import *
 
 import torch
 import torch.nn as nn
@@ -1205,6 +1205,8 @@ class UNet128_3 (nn.Module):
         return out
 
 
+import os
+from torch.autograd import Variable
 
 # main #################################################################
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 from common import *
 from submit import *
 from dataset.carvana_cars import *
-from net.segmentation.my_unet import SoftDiceLoss, BCELoss2d, UNet512_2 as Net
+from net.segmentation.myunet1024 import SoftDiceLoss, BCELoss2d, UNet1024 as Net
 from net.tool import *
 import bcolz
 
@@ -17,7 +17,6 @@ def criterion(logits, labels):
 
 
 ## experiment setting here ----------------------------------------------------
-
 
 
 
@@ -247,8 +246,8 @@ def run_train():
 
     out_dir  = OUT_DIR
     #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    #initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results/checkpoint/099.pth'
-    initial_checkpoint = None
+    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024/checkpoint/040_0.99460.pth'
+    #initial_checkpoint = None
     #
 
 
@@ -277,11 +276,11 @@ def run_train():
 
     ## dataset ----------------------------------------
     log.write('** dataset setting **\n')
-    batch_size = 2
+    batch_size = 3
     train_dataset = KgCarDataset( 'train%dx%d_v0_4848'%(CARVANA_H,CARVANA_W),
                                   #'train%dx%d_5088'%(CARVANA_H,CARVANA_W),   #'train128x128_5088',  #'train_5088'
                                 transform=[
-                                    lambda x,y:  randomShiftScaleRotate2(x,y,shift_limit=(-0.08,0.08), scale_limit=(-0.1,0.1), rotate_limit=(-0,0)),
+                                    lambda x,y:  randomShiftScaleRotate2(x,y,shift_limit=(-0.06,0.06), scale_limit=(-0.0,0.0), rotate_limit=(-0,0)),
                                     #lambda x,y:  randomShiftScaleRotate2(x,y,shift_limit=(-0.0625,0.0625), scale_limit=(-0.0,0.0),  aspect_limit = (1-1/1.2   ,1.2-1), rotate_limit=(0,0)),
                                     lambda x,y:  randomHorizontalFlip2(x,y),
                                 ],
@@ -292,7 +291,7 @@ def run_train():
                         sampler = RandomSampler(train_dataset),  #ProbSampler(train_dataset),  #ProbSampler(train_dataset,SAMPLING_PROB),  # #FixedSampler(train_dataset,list(range(batch_size))),  ##
                         batch_size  = batch_size,
                         drop_last   = True,
-                        num_workers = 2,
+                        num_workers = 4,
                         pin_memory  = True)
 
 
@@ -305,7 +304,7 @@ def run_train():
                         sampler = SequentialSampler(valid_dataset),
                         batch_size  = batch_size,
                         drop_last   = False,
-                        num_workers = 2,
+                        num_workers = 4,
                         pin_memory  = True)
 
 
@@ -338,7 +337,7 @@ def run_train():
     log.write('%s\n\n'%(type(net)))
 
     ## optimiser ----------------------------------
-    optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)  ###0.0005
+    optimizer = optim.SGD(net.parameters(), lr=0.002, momentum=0.9, weight_decay=0.0005)  ###0.0005
 
     num_epoches = 100  #100
     it_print    = 1   #20
@@ -354,6 +353,7 @@ def run_train():
         start_epoch = checkpoint['epoch']
         optimizer.load_state_dict(checkpoint['optimizer'])
         net.load_state_dict(checkpoint['state_dict'])
+        print('loaded checkpoint:' + initial_checkpoint)
 
 
 
@@ -385,7 +385,9 @@ def run_train():
         #---learning rate schduler ------------------------------
         # lr = LR.get_rate(epoch, num_epoches)
         # if lr<0 : break
-        if epoch>=15:
+        if epoch < 15:
+            adjust_learning_rate(optimizer, lr=0.002)
+        elif epoch>=15:
             adjust_learning_rate(optimizer, lr=0.001)
         elif epoch>=25:
             adjust_learning_rate(optimizer, lr=0.0005)
@@ -419,7 +421,7 @@ def run_train():
             loss = criterion(logits, labels)
             loss.backward()
             #backward
-            if (it + 1) % 8 == 0:
+            if (it + 1) % 6 == 0:
                 optimizer.step()
                 optimizer.zero_grad()
                 
@@ -461,7 +463,7 @@ def run_train():
             net.eval()
             valid_predictions, valid_loss, valid_acc = predict_and_evaluate(net, valid_loader)
             print('\r',end='',flush=True)
-            log.write('%5.1f   %5d    %0.4f   |  %0.4f  %0.4f | %0.4f  %6.4f | %0.4f  %6.4f  |  %3.1f min \n' % \
+            log.write('%5.1f   %5d    %0.4f   |  %0.4f  %0.4f | %0.4f  %6.4f | %0.4f  %.5f  |  %3.1f min \n' % \
                     (epoch + 1, it + 1, rate, smooth_loss, smooth_acc, train_loss, train_acc, valid_loss, valid_acc, time))
 
         if 0:
@@ -487,16 +489,18 @@ def run_train():
                 im_show('test',  results,  resize=1)
                 cv2.waitKey(1)
 
-        if epoch in epoch_save:
-            torch.save(net.state_dict(),out_dir +'/snap/%03d.pth'%epoch)
+        if epoch in epoch_save or valid_acc > best_val_acc:
+            torch.save(net.state_dict(),out_dir +'/snap/%03d_%.5f.pth'%(epoch, valid_acc))
             torch.save({
                 'state_dict': net.state_dict(),
                 'optimizer' : optimizer.state_dict(),
                 'epoch'     : epoch,
-            }, out_dir +'/checkpoint/%03d.pth'%epoch)
-        elif valid_acc > best_val_acc:
-            torch.save(net.state_dict(),out_dir +'/snap/best.pth')
+            }, out_dir +'/checkpoint/%03d_%.5f.pth'%(epoch, valid_acc))
+        if valid_acc > best_val_acc:
             best_val_acc = valid_acc
+        #elif valid_acc > best_val_acc:
+        #    torch.save(net.state_dict(),out_dir +'/snap/best.pth')
+        #    best_val_acc = valid_acc
             ## https://github.com/pytorch/examples/blob/master/imagenet/main.py
 
 
