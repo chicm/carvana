@@ -258,8 +258,8 @@ def run_train():
 
     out_dir  = OUT_DIR
     #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024/checkpoint/041_0.99473.pth'
-    #initial_checkpoint = None
+    #initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024/checkpoint/041_0.99473.pth'
+    initial_checkpoint = None
     #
 
 
@@ -349,7 +349,7 @@ def run_train():
     log.write('%s\n\n'%(type(net)))
 
     ## optimiser ----------------------------------
-    optimizer = optim.SGD(net.parameters(), lr=0.002, momentum=0.9, weight_decay=0.0005)  ###0.0005
+    optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)  ###0.0005
 
     num_epoches = 100  #100
     it_print    = 1   #20
@@ -397,17 +397,19 @@ def run_train():
         #---learning rate schduler ------------------------------
         # lr = LR.get_rate(epoch, num_epoches)
         # if lr<0 : break
-        if epoch < 15:
+        if epoch <= 5:
+            adjust_learning_rate(optimizer, lr=0.01)
+        elif epoch <= 15:
             adjust_learning_rate(optimizer, lr=0.002)
-        elif epoch>=15:
+        elif epoch <= 25:
             adjust_learning_rate(optimizer, lr=0.001)
-        elif epoch>=25:
+        elif epoch <= 35:
             adjust_learning_rate(optimizer, lr=0.0005)
-        elif epoch>=50:
+        elif epoch <= 55:
             adjust_learning_rate(optimizer, lr=0.0001)
-        elif epoch>=80:
+        elif epoch <= 80:
             adjust_learning_rate(optimizer, lr=0.00001)
-        elif epoch>=num_epoches-5:
+        elif epoch >= num_epoches-5:
             adjust_learning_rate(optimizer, lr=0.00001)
         else:
             pass
