@@ -17,14 +17,14 @@ def criterion_old(logits, labels):
 
 ## experiment setting here ----------------------------------------------------
 def criterion(logits, labels, is_weight=True):
-    a = F.avg_pool2d(labels, kernel_size=11, padding=5, stride=1)
+    a = F.avg_pool2d(labels, kernel_size=21, padding=10, stride=1)
     ind = a.ge(0.01) * a.le(0.99)
     ind = ind.float()
     weights = Variable(torch.tensor.torch.ones(a.size())).cuda()
     
     if is_weight:
         w0 = weights.data.sum()
-        weights = weights + ind * 2
+        weights = weights + ind * 4
         w1 = weights.data.sum()
         weights = weights / w1 * w0
 
@@ -258,8 +258,8 @@ def run_train():
 
     out_dir  = OUT_DIR
     #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    #initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024/checkpoint/041_0.99473.pth'
-    initial_checkpoint = None
+    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024/checkpoint/052_0.99599.pth'
+    #initial_checkpoint = None
     #
 
 
@@ -349,7 +349,7 @@ def run_train():
     log.write('%s\n\n'%(type(net)))
 
     ## optimiser ----------------------------------
-    optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)  ###0.0005
+    #optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)  ###0.0005
 
     num_epoches = 100  #100
     it_print    = 1   #20
@@ -363,11 +363,11 @@ def run_train():
     if initial_checkpoint is not None:
         checkpoint  = torch.load(initial_checkpoint)
         start_epoch = checkpoint['epoch']
-        optimizer.load_state_dict(checkpoint['optimizer'])
+        #optimizer.load_state_dict(checkpoint['optimizer'])
         net.load_state_dict(checkpoint['state_dict'])
         print('loaded checkpoint:' + initial_checkpoint)
 
-
+    optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)
 
 
 
@@ -435,7 +435,7 @@ def run_train():
             loss = criterion(logits, labels)
             loss.backward()
             #backward
-            if (it + 1) % 6 == 0:
+            if (it + 1) % 8 == 0:
                 optimizer.step()
                 optimizer.zero_grad()
                 
