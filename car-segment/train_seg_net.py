@@ -1,11 +1,11 @@
 from common import *
 from submit import *
 from dataset.carvana_cars import *
-from net.segmentation.myunet1024 import SoftDiceLoss, BCELoss2d, WeightedBCELoss2d, WeightedSoftDiceLoss, UNet1024 as Net
+from net.segmentation.myunet1024 import SoftDiceLoss, BCELoss2d, WeightedBCELoss2d, WeightedSoftDiceLoss, UNet1024_3 as Net
 from net.tool import *
 import bcolz
 
-OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024'
+OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024_3'
 BLOCK_NUM = 51
 
 ## experiment setting here ----------------------------------------------------
@@ -258,8 +258,8 @@ def run_train():
 
     out_dir  = OUT_DIR
     #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024/checkpoint/052_0.99599.pth'
-    #initial_checkpoint = None
+    #initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024_2/checkpoint/020_0.99532.pth'
+    initial_checkpoint = None
     #
 
 
@@ -288,7 +288,7 @@ def run_train():
 
     ## dataset ----------------------------------------
     log.write('** dataset setting **\n')
-    batch_size = 3
+    batch_size = 2
     train_dataset = KgCarDataset( 'train%dx%d_v0_4848'%(CARVANA_H,CARVANA_W),
                                   #'train%dx%d_5088'%(CARVANA_H,CARVANA_W),   #'train128x128_5088',  #'train_5088'
                                 transform=[
@@ -399,12 +399,14 @@ def run_train():
         # if lr<0 : break
         if epoch <= 5:
             adjust_learning_rate(optimizer, lr=0.01)
+        elif epoch <= 10:
+            adjust_learning_rate(optimizer, lr=0.008)
         elif epoch <= 15:
-            adjust_learning_rate(optimizer, lr=0.002)
+            adjust_learning_rate(optimizer, lr=0.005)
         elif epoch <= 25:
-            adjust_learning_rate(optimizer, lr=0.001)
+            adjust_learning_rate(optimizer, lr=0.002)
         elif epoch <= 35:
-            adjust_learning_rate(optimizer, lr=0.0005)
+            adjust_learning_rate(optimizer, lr=0.001)
         elif epoch <= 55:
             adjust_learning_rate(optimizer, lr=0.0001)
         elif epoch <= 80:
