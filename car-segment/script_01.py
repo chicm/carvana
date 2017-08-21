@@ -30,7 +30,7 @@ def run_make_small_masks():
 
     img_dir = CARVANA_DIR + '/annotations/train'  # read all annotations
 
-    H,W = 1024, 1024
+    H,W = 512, 512
     small_dir  = img_dir + '%dx%d'%(W,H)
     os.makedirs(small_dir,exist_ok=True)
 
@@ -159,9 +159,9 @@ def run_remove_background():
 if __name__ == '__main__':
     print( '%s: calling main function ... ' % os.path.basename(__file__))
 
-    #run_make_small_masks()
-    run_make_small_images('train')
-    run_make_small_images('test')
+    run_make_small_masks()
+    #run_make_small_images('train')
+    #run_make_small_images('test')
     #run_remove_background()
 
     print('\nsucess!')

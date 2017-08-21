@@ -5,7 +5,7 @@ from net.segmentation.myunet1024 import SoftDiceLoss, BCELoss2d, WeightedBCELoss
 from net.tool import *
 import bcolz
 
-OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024_3'
+OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024_3_512'
 BLOCK_NUM = 51
 
 ## experiment setting here ----------------------------------------------------
@@ -28,7 +28,7 @@ def criterion(logits, labels, is_weight=True):
         w1 = weights.data.sum()
         weights = weights / w1 * w0
 
-    l = WeightedBCELoss2d()(logits, labels, weights) + WeightedSoftDiceLoss()(logits, labels, weights)
+    l = WeightedSoftDiceLoss()(logits, labels, weights) +  WeightedBCELoss2d()(logits, labels, weights) 
     return l
 
 
@@ -176,7 +176,7 @@ def predict_and_evaluate(net, test_loader ):
 
     num = len(test_dataset)
     H, W = CARVANA_H, CARVANA_W
-    predictions  = np.zeros((num, H, W),np.float32)
+    predictions  = np.zeros((num, H//2, W//2),np.float32)
 
     test_acc  = 0
     test_loss = 0
@@ -200,7 +200,7 @@ def predict_and_evaluate(net, test_loader ):
         test_acc  += batch_size*acc.data[0]
         start = test_num-batch_size
         end   = test_num
-        predictions[start:end] = probs.data.cpu().numpy().reshape(-1, H, W)
+        predictions[start:end] = probs.data.cpu().numpy().reshape(-1, H//2, W//2)
 
     assert(test_num == len(test_loader.sampler))
 
@@ -258,7 +258,7 @@ def run_train():
 
     out_dir  = OUT_DIR
     #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    #initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024_2/checkpoint/020_0.99532.pth'
+    #initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024_3/checkpoint/057_0.99587.pth'
     initial_checkpoint = None
     #
 
@@ -289,7 +289,7 @@ def run_train():
     ## dataset ----------------------------------------
     log.write('** dataset setting **\n')
     batch_size = 2
-    train_dataset = KgCarDataset( 'train%dx%d_v0_4848'%(CARVANA_H,CARVANA_W),
+    train_dataset = KgCarDataset( 'train%dx%d_v0_4848'%(CARVANA_H//2,CARVANA_W//2),
                                   #'train%dx%d_5088'%(CARVANA_H,CARVANA_W),   #'train128x128_5088',  #'train_5088'
                                 transform=[
                                     lambda x,y:  randomShiftScaleRotate2(x,y,shift_limit=(-0.06,0.06), scale_limit=(-0.0,0.0), rotate_limit=(-0,0)),
@@ -308,7 +308,7 @@ def run_train():
 
 
 
-    valid_dataset = KgCarDataset( 'valid%dx%d_v0_240'%(CARVANA_H,CARVANA_W),
+    valid_dataset = KgCarDataset( 'valid%dx%d_v0_240'%(CARVANA_H//2,CARVANA_W//2),
                                 is_label=True,
                                 is_preload=False)
     valid_loader  = DataLoader(
@@ -407,6 +407,8 @@ def run_train():
             adjust_learning_rate(optimizer, lr=0.002)
         elif epoch <= 35:
             adjust_learning_rate(optimizer, lr=0.001)
+        elif epoch <= 45:
+            adjust_learning_rate(optimizer, lr=0.0005)
         elif epoch <= 55:
             adjust_learning_rate(optimizer, lr=0.0001)
         elif epoch <= 80:

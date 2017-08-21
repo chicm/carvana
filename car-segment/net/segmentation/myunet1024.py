@@ -529,7 +529,7 @@ class UNet1024_3 (nn.Module):
             *make_conv_bn_relu(2048,2048, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(2048,2048, kernel_size=3, stride=1, padding=1 ),
         )
-        self.deconv7 = nn.ConvTranspose2d(2048, 2048, kernel_size=2, stride=2)
+        self.deconv7 = nn.ConvTranspose2d(2048, 2048, kernel_size=3, stride=2, padding=1, output_padding=1)
         self.up7 = nn.Sequential(
             *make_conv_bn_relu(1024+2048,1024, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(     1024,1024, kernel_size=3, stride=1, padding=1 ),
@@ -537,7 +537,7 @@ class UNet1024_3 (nn.Module):
             #nn.Dropout(p=0.10),
         )
         #16
-        self.deconv6 = nn.ConvTranspose2d(1024, 1024, kernel_size=2, stride=2)
+        self.deconv6 = nn.ConvTranspose2d(1024, 1024, kernel_size=3, stride=2, padding=1, output_padding=1)
         self.up6 = nn.Sequential(
             *make_conv_bn_relu(512+1024,512, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(     512,512, kernel_size=3, stride=1, padding=1 ),
@@ -545,28 +545,28 @@ class UNet1024_3 (nn.Module):
             #nn.Dropout(p=0.10),
         )
         #16
-        self.deconv5 = nn.ConvTranspose2d(512, 512, kernel_size=2, stride=2)
+        self.deconv5 = nn.ConvTranspose2d(512, 512, kernel_size=3, stride=2, padding=1, output_padding=1)
         self.up5 = nn.Sequential(
             *make_conv_bn_relu(256+512,256, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(    256,256, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(    256,256, kernel_size=3, stride=1, padding=1 ),
         )
         #32
-        self.deconv4 = nn.ConvTranspose2d(256, 256, kernel_size=2, stride=2)
+        self.deconv4 = nn.ConvTranspose2d(256, 256, kernel_size=3, stride=2, padding=1, output_padding=1)
         self.up4 = nn.Sequential(
             *make_conv_bn_relu(128+256,128, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(    128,128, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(    128,128, kernel_size=3, stride=1, padding=1 ),
         )
         #64
-        self.deconv3 = nn.ConvTranspose2d(128, 128, kernel_size=2, stride=2)
+        self.deconv3 = nn.ConvTranspose2d(128, 128, kernel_size=3, stride=2, padding=1, output_padding=1)
         self.up3 = nn.Sequential(
             *make_conv_bn_relu( 64+128,64, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(     64,64, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(     64,64, kernel_size=3, stride=1, padding=1 ),
         )
         #128
-        self.deconv2 = nn.ConvTranspose2d(64, 64, kernel_size=2, stride=2)
+        self.deconv2 = nn.ConvTranspose2d(64, 64, kernel_size=3, stride=2, padding=1, output_padding=1)
         self.up2 = nn.Sequential(
             *make_conv_bn_relu( 32+64,32, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(    32,32, kernel_size=3, stride=1, padding=1 ),
@@ -574,9 +574,9 @@ class UNet1024_3 (nn.Module):
         )
         #128
         #-------------------------------------------------------------------------
-        self.deconv1 = nn.ConvTranspose2d(32, 32, kernel_size=2, stride=2)
+        self.deconv1 = nn.ConvTranspose2d(32, 32, kernel_size=3, stride=2, padding=1, output_padding=1)
         self.up1 = nn.Sequential(
-            *make_conv_bn_relu( 16+32,16, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu( 16+32+3,16, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(    16,16, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(    16,16, kernel_size=3, stride=1, padding=1 ),
         )
@@ -636,7 +636,7 @@ class UNet1024_3 (nn.Module):
         out   = self.up2(out)
 
         out   = self.deconv1(out) #1024
-        out   = torch.cat([down1, out],1)
+        out   = torch.cat([down1, out, x],1)
         out   = self.up1(out)
 
         #out   = F.upsample_bilinear(out, scale_factor=2) #1024
@@ -658,7 +658,7 @@ from torch.autograd import Variable
 if __name__ == '__main__':
     print( '%s: calling main function ... ' % os.path.basename(__file__))
 
-    batch_size  = 4
+    batch_size  = 2
     C,H,W = 3,1024,1024
 
     # if 0: # CrossEntropyLoss2d()
@@ -687,7 +687,7 @@ if __name__ == '__main__':
         inputs = torch.randn(batch_size,C,H,W)
         labels = torch.LongTensor(batch_size,H,W).random_(1).type(torch.FloatTensor)
 
-        net = UNet1024(in_shape=(C,H,W), num_classes=1).cuda().train()
+        net = UNet1024_3(in_shape=(C,H,W), num_classes=1).cuda().train()
         x = Variable(inputs).cuda()
         y = Variable(labels).cuda()
         logits = net.forward(x)
@@ -696,6 +696,7 @@ if __name__ == '__main__':
         loss.backward()
 
         print(type(net))
+        net.cuda()
         print(net)
 
         print('logits')

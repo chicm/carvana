@@ -138,7 +138,7 @@ class KgCarDataset(Dataset):
         #read labels
         labels = None
         if is_label==True:
-            labels = np.zeros((num,height,width),dtype=np.float32)
+            labels = np.zeros((num,height//2,width//2),dtype=np.float32)
             for n in range(num):
                 name = names[n]
                 #name = name.replace('%dx%d'%(height,width),'%dx%d'%(2*height,2*width))
