@@ -5,7 +5,7 @@ from net.segmentation.my_unet import SoftDiceLoss, BCELoss2d, UNet_double_1024_5
 from net.tool import *
 import bcolz
 
-OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results'
+OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/best_results'
 BLOCK_NUM = 51
 
 ## experiment setting here ----------------------------------------------------
@@ -247,7 +247,7 @@ def run_train():
 
     out_dir  = OUT_DIR
     #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results/checkpoint/099.pth'
+    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/best_results/checkpoint/099.pth'
     #
 
 
@@ -728,10 +728,10 @@ def run_check_submit_csv():
 if __name__ == '__main__':
     print( '%s: calling main function ... ' % os.path.basename(__file__))
 
-    #run_train()
-    run_predict()
+    run_train()
+    #run_predict()
     #run_ensemble()
-    run_submit('best')
+    #run_submit('best')
     #run_check_submit_csv()
 
     print('\nsucess!')
