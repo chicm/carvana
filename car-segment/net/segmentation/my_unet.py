@@ -1,7 +1,7 @@
 # unet from scratch
 
-from common import *
-
+#from common import *
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -1081,43 +1081,54 @@ class UNet_double_1024_5 (nn.Module):
 
 
 
-
-
-
-
-
-
-
-
-# https://gist.github.com/fsodogandji/e69dfecf153d4df62044b8ca385c4577 ----------------------------------------------------
-# learnable upsampling using deconv
-class UNet128_3 (nn.Module):
+class UNet_double_1024_6 (nn.Module):
 
     def __init__(self, in_shape, num_classes):
-        super(UNet128_3, self).__init__()
+        super(UNet_double_1024_6, self).__init__()
         in_channels, height, width = in_shape
 
+        #1024
+        self.down0 = nn.Sequential(
+            *make_conv_bn_relu(in_channels, 8, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(8, 8, kernel_size=3, stride=1, padding=1 ),
+        )
+        #512
+
+        #512
+        self.down1 = nn.Sequential(
+            *make_conv_bn_relu(8, 16, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(16, 16, kernel_size=3, stride=1, padding=1 ),
+        )
+        #256
+
+
+        #UNet512_2 ------------------------------------------------------------------------
+        #256
+        self.down2 = nn.Sequential(
+            *make_conv_bn_relu(16, 32, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(32, 32, kernel_size=3, stride=1, padding=1 ),
+        )
         #128
 
-        self.down1 = nn.Sequential(
-            *make_conv_bn_relu(in_channels, 64, kernel_size=3, stride=1, padding=1 ),
+        self.down3 = nn.Sequential(
+            *make_conv_bn_relu(32, 64, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(64, 64, kernel_size=3, stride=1, padding=1 ),
         )
         #64
 
-        self.down2 = nn.Sequential(
+        self.down4 = nn.Sequential(
             *make_conv_bn_relu(64,  128, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(128, 128, kernel_size=3, stride=1, padding=1 ),
         )
         #32
 
-        self.down3 = nn.Sequential(
+        self.down5 = nn.Sequential(
             *make_conv_bn_relu(128, 256, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(256, 256, kernel_size=3, stride=1, padding=1 ),
         )
         #16
 
-        self.down4 = nn.Sequential(
+        self.down6 = nn.Sequential(
             *make_conv_bn_relu(256,512, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(512,512, kernel_size=3, stride=1, padding=1 ),
         )
@@ -1129,76 +1140,115 @@ class UNet128_3 (nn.Module):
         )
 
         #16
-        self.deconv4 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
-        self.up4 = nn.Sequential(
-            *make_conv_bn_relu(512+512,512, kernel_size=3, stride=1, padding=1 ),
-            *make_conv_bn_relu(    512,512, kernel_size=3, stride=1, padding=1 ),
-            *make_conv_bn_relu(    512,512, kernel_size=3, stride=1, padding=1 ),
+        self.up6 = nn.Sequential(
+            *make_conv_bn_relu(512+1024,512, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(     512,512, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(     512,512, kernel_size=3, stride=1, padding=1 ),
             #nn.Dropout(p=0.10),
         )
         #16
 
-        self.deconv3 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
-        self.up3 = nn.Sequential(
-            *make_conv_bn_relu(256+256,256, kernel_size=3, stride=1, padding=1 ),
+        self.up5 = nn.Sequential(
+            *make_conv_bn_relu(256+512,256, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(    256,256, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(    256,256, kernel_size=3, stride=1, padding=1 ),
         )
         #32
 
-        self.deconv2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
-        self.up2 = nn.Sequential(
-            *make_conv_bn_relu(128+128,128, kernel_size=3, stride=1, padding=1 ),
+        self.up4 = nn.Sequential(
+            *make_conv_bn_relu(128+256,128, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(    128,128, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(    128,128, kernel_size=3, stride=1, padding=1 ),
         )
         #64
 
-        self.deconv1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
-        self.up1 = nn.Sequential(
-            *make_conv_bn_relu( 64+64,64, kernel_size=3, stride=1, padding=1 ),
-            *make_conv_bn_relu(    64,64, kernel_size=3, stride=1, padding=1 ),
-            *make_conv_bn_relu(    64,64, kernel_size=3, stride=1, padding=1 ),
+        self.up3 = nn.Sequential(
+            *make_conv_bn_relu( 64+128,64, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(     64,64, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(     64,64, kernel_size=3, stride=1, padding=1 ),
         )
         #128
 
-        self.classify = nn.Conv2d(64, num_classes, kernel_size=1, stride=1, padding=0 )
+        self.up2 = nn.Sequential(
+            *make_conv_bn_relu( 32+64,32, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(    32,32, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(    32,32, kernel_size=3, stride=1, padding=1 ),
+        )
+        #128
+        #-------------------------------------------------------------------------
 
+        self.up1 = nn.Sequential(
+            *make_conv_bn_relu( 16+32,16, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(    16,16, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(    16,16, kernel_size=3, stride=1, padding=1 ),
+        )
+        #128
+
+        self.up0 = nn.Sequential(
+            *make_conv_bn_relu(  3+8+16,8, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(     8,8, kernel_size=3, stride=1, padding=1 ),
+            *make_conv_bn_relu(     8,8, kernel_size=3, stride=1, padding=1 ),
+        )
+        #128
+
+        self.classify = nn.Conv2d(8, num_classes, kernel_size=1, stride=1, padding=0 )
 
 
     def forward(self, x):
-
-        #256
-
-        down1 = self.down1(x)
-        out   = F.max_pool2d(down1, kernel_size=2, stride=2) #64
+        
+        down0 = self.down0(x) #1024
+        out  = F.max_pool2d(down0, kernel_size=2, stride=2) #512
+        #512
+        down1 = self.down1(out)
+        out   = F.max_pool2d(down1, kernel_size=2, stride=2) #256
 
         down2 = self.down2(out)
-        out   = F.max_pool2d(down2, kernel_size=2, stride=2) #32
+        out   = F.max_pool2d(down2, kernel_size=2, stride=2) #128
 
         down3 = self.down3(out)
-        out   = F.max_pool2d(down3, kernel_size=2, stride=2) #16
+        out   = F.max_pool2d(down3, kernel_size=2, stride=2) #64
 
         down4 = self.down4(out)
-        out   = F.max_pool2d(down4, kernel_size=2, stride=2) # 8
+        out   = F.max_pool2d(down4, kernel_size=2, stride=2) #32
 
-        out   = self.center(out)
+        down5 = self.down5(out)
+        out   = F.max_pool2d(down5, kernel_size=2, stride=2) #16
 
-        out   = self.deconv4(out) #16
+        down6 = self.down6(out)
+        out   = F.max_pool2d(down6, kernel_size=2, stride=2) # 8
+
+        out   = self.center(out) # 8
+        #print(out.size())
+
+        out   = F.upsample_bilinear(out, scale_factor=2) #16
+        out   = torch.cat([down6, out],1)
+        out   = self.up6(out)
+
+        out   = F.upsample_bilinear(out, scale_factor=2) #32
+        out   = torch.cat([down5, out],1)
+        out   = self.up5(out)
+
+        out   = F.upsample_bilinear(out, scale_factor=2) #64
         out   = torch.cat([down4, out],1)
         out   = self.up4(out)
 
-        out   = self.deconv3(out) #32
+        out   = F.upsample_bilinear(out, scale_factor=2) #128
         out   = torch.cat([down3, out],1)
         out   = self.up3(out)
 
-        out   = self.deconv2(out) #64
+        out   = F.upsample_bilinear(out, scale_factor=2) #256
         out   = torch.cat([down2, out],1)
         out   = self.up2(out)
 
-        out   = self.deconv1(out) #128
+        out   = F.upsample_bilinear(out, scale_factor=2) #512
         out   = torch.cat([down1, out],1)
         out   = self.up1(out)
+
+        out   = F.upsample_bilinear(out, scale_factor=2) #1024
+        #x     = F.upsample_bilinear(x,   scale_factor=2)
+        out   = torch.cat([x, out, down0],1)
+        out   = self.up0(out)
+
 
         out   = self.classify(out)
 
@@ -1206,12 +1256,19 @@ class UNet128_3 (nn.Module):
 
 
 
+
+
+
+
+
+from torch.autograd import Variable
+
 # main #################################################################
 if __name__ == '__main__':
     print( '%s: calling main function ... ' % os.path.basename(__file__))
 
-    batch_size  = 10
-    C,H,W = 3,512,512
+    batch_size  = 8
+    C,H,W = 3,1024,1024
 
     # if 0: # CrossEntropyLoss2d()
     #     inputs = torch.randn(batch_size,C,H,W)
@@ -1237,9 +1294,9 @@ if __name__ == '__main__':
         num_classes = 1
 
         inputs = torch.randn(batch_size,C,H,W)
-        labels = torch.LongTensor(batch_size,2*H,2*W).random_(1).type(torch.FloatTensor)
+        labels = torch.LongTensor(batch_size,H,W).random_(1).type(torch.FloatTensor)
 
-        net = UNet_double_1024_5(in_shape=(C,H,W), num_classes=1).cuda().train()
+        net = UNet_double_1024_6(in_shape=(C,H,W), num_classes=1).cuda().train()
         x = Variable(inputs).cuda()
         y = Variable(labels).cuda()
         logits = net.forward(x)

@@ -1,11 +1,11 @@
 from common import *
 from submit import *
 from dataset.carvana_cars import *
-from net.segmentation.my_unet import SoftDiceLoss, BCELoss2d, UNet512_2 as Net
+from net.segmentation.my_unet import SoftDiceLoss, BCELoss2d, UNet_double_1024_6 as Net
 from net.tool import *
 import bcolz
 
-OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024'
+OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/m1024_1'
 BLOCK_NUM = 51
 
 ## experiment setting here ----------------------------------------------------
@@ -277,7 +277,7 @@ def run_train():
 
     ## dataset ----------------------------------------
     log.write('** dataset setting **\n')
-    batch_size = 2
+    batch_size = 8
     train_dataset = KgCarDataset( 'train%dx%d_v0_4848'%(CARVANA_H,CARVANA_W),
                                   #'train%dx%d_5088'%(CARVANA_H,CARVANA_W),   #'train128x128_5088',  #'train_5088'
                                 transform=[
@@ -292,7 +292,7 @@ def run_train():
                         sampler = RandomSampler(train_dataset),  #ProbSampler(train_dataset),  #ProbSampler(train_dataset,SAMPLING_PROB),  # #FixedSampler(train_dataset,list(range(batch_size))),  ##
                         batch_size  = batch_size,
                         drop_last   = True,
-                        num_workers = 2,
+                        num_workers = 4,
                         pin_memory  = True)
 
 
@@ -305,7 +305,7 @@ def run_train():
                         sampler = SequentialSampler(valid_dataset),
                         batch_size  = batch_size,
                         drop_last   = False,
-                        num_workers = 2,
+                        num_workers = 4,
                         pin_memory  = True)
 
 
