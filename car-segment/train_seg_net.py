@@ -5,11 +5,11 @@ from net.segmentation.my_unet import SoftDiceLoss, BCELoss2d, UNet_double_1024_5
 from net.tool import *
 import bcolz
 
-OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/best_results'
+OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/m512'
 BLOCK_NUM = 51
 
 ## experiment setting here ----------------------------------------------------
-def criterion(logits, labels):
+def criterion_old(logits, labels):
     #l = BCELoss2d()(logits, labels)
     l = BCELoss2d()(logits, labels) + SoftDiceLoss()(logits, labels)
     return l
@@ -18,8 +18,48 @@ def criterion(logits, labels):
 
 ## experiment setting here ----------------------------------------------------
 
+class WeightedBCELoss2d(nn.Module):
+    def __init__(self):
+        super(WeightedBCELoss2d, self).__init__()
 
+    def forward(self, logits, labels, weights):
+        w = weights.view(-1)
+        z = logits.view(-1)
+        t = labels.view(-1)
+        loss = w*z.clamp(min=0) - w*z*t + w*torch.log(1 + torch.exp(-z.abs()))
+        loss = loss.sum() / w.sum()
+        return loss
 
+class WeightedSoftDiceLoss(nn.Module):
+    def __init__(self):
+        super(WeightedSoftDiceLoss,self).__init__()
+
+    def forward(self, logits, labels, weights):
+        probs = F.sigmoid(logits)
+        num   = labels.size(0)
+        w     = (weights).view(num, -1)
+        w2    = w*w
+        m1    = (probs).view(num, -1)
+        m2    = (labels).view(num, -1)
+        intersection = (m1 * m2)
+        score = 2. * ((w2*intersection).sum(1)+1) / ((w2*m1).sum(1) + (w2*m2).sum(1)+1)
+        score = 1 - score.sum() / num
+        return score
+
+def criterion(logits, labels, is_weight=True):
+    a = F.avg_pool2d(labels, kernel_size=21, padding=10, stride=1)
+    ind = a.ge(0.01) * a.le(0.99)
+    ind = ind.float()
+    weights = Variable(torch.tensor.torch.ones(a.size())).cuda()
+    
+    if is_weight:
+        w0 = weights.data.sum()
+        weights = weights + ind * 2
+        w1 = weights.data.sum()
+        weights = weights / w1 * w0
+
+    l = WeightedBCELoss2d()(logits, labels, weights) + WeightedSoftDiceLoss()(logits, labels, weights)
+    return l
 
 #https://github.com/jocicmarko/ultrasound-nerve-segmentation/blob/master/train.py
 #https://www.kaggle.com/c/carvana-image-masking-challenge#evaluation
@@ -247,7 +287,8 @@ def run_train():
 
     out_dir  = OUT_DIR
     #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/best_results/checkpoint/099.pth'
+    #initial_checkpoint = None
+    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/m512/checkpoint/099.pth'
     #
 
 
@@ -280,7 +321,7 @@ def run_train():
     train_dataset = KgCarDataset( 'train%dx%d_v0_4848'%(CARVANA_H,CARVANA_W),
                                   #'train%dx%d_5088'%(CARVANA_H,CARVANA_W),   #'train128x128_5088',  #'train_5088'
                                 transform=[
-                                    lambda x,y:  randomShiftScaleRotate2(x,y,shift_limit=(-0.08,0.08), scale_limit=(-0.1,0.1), rotate_limit=(-0,0)),
+                                    lambda x,y:  randomShiftScaleRotate2(x,y,shift_limit=(-0.05,0.05), scale_limit=(-0.0,0.0), rotate_limit=(-0,0)),
                                     #lambda x,y:  randomShiftScaleRotate2(x,y,shift_limit=(-0.0625,0.0625), scale_limit=(-0.0,0.0),  aspect_limit = (1-1/1.2   ,1.2-1), rotate_limit=(0,0)),
                                     lambda x,y:  randomHorizontalFlip2(x,y),
                                 ],
@@ -339,12 +380,13 @@ def run_train():
     ## optimiser ----------------------------------
     optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)  ###0.0005
 
-    num_epoches = 150  #100
+    num_epoches = 250  #100
     it_print    = 1   #20
     it_smooth   = 20
     epoch_test  = 5
     epoch_valid = 1
-    epoch_save  = [0,3,5,10,15,20,25,35,40,45,50,60,70,75,80,85,90,95,num_epoches-1]
+    #epoch_save  = [i for i in range(0, num_epoches, 5)]
+    epoch_save = []
 
     ## resume from previous ----------------------------------
     start_epoch=0
@@ -353,7 +395,7 @@ def run_train():
         start_epoch = checkpoint['epoch']
         optimizer.load_state_dict(checkpoint['optimizer'])
         net.load_state_dict(checkpoint['state_dict'])
-
+        print('loaded checkpoint:' + initial_checkpoint)
 
 
 
@@ -384,16 +426,24 @@ def run_train():
         #---learning rate schduler ------------------------------
         # lr = LR.get_rate(epoch, num_epoches)
         # if lr<0 : break
-        if epoch>=15:
+        if epoch <= 5:
+            adjust_learning_rate(optimizer, lr=0.01)
+        elif epoch <= 10:
+            adjust_learning_rate(optimizer, lr=0.008)
+        elif epoch <= 15:
+            adjust_learning_rate(optimizer, lr=0.005)
+        elif epoch <= 25:
+            adjust_learning_rate(optimizer, lr=0.002)
+        elif epoch <= 35:
             adjust_learning_rate(optimizer, lr=0.001)
-        elif epoch>=25:
-            adjust_learning_rate(optimizer, lr=0.0005)
-        elif epoch>=50:
+        elif epoch <= 55:
             adjust_learning_rate(optimizer, lr=0.0001)
-        elif epoch>=num_epoches-5:
+        elif epoch <= 80:
+            adjust_learning_rate(optimizer, lr=0.00005)
+        elif epoch >= num_epoches-5:
             adjust_learning_rate(optimizer, lr=0.00001)
         else:
-            pass
+            adjust_learning_rate(optimizer, lr=0.00005)
 
         rate =  get_learning_rate(optimizer)[0] #check
         #--------------------------------------------------------
@@ -416,9 +466,11 @@ def run_train():
 
             #backward
             loss = criterion(logits, labels)
-            optimizer.zero_grad()
             loss.backward()
-            optimizer.step()
+
+            if (it+1) % 2 == 0:
+                optimizer.step()
+                optimizer.zero_grad()
 
             # print statistics
             acc  = dice_loss(masks, labels)
@@ -438,7 +490,7 @@ def run_train():
             if it%it_print == 0 or it==num_its-1:
                 train_acc  = acc.data [0]
                 train_loss = loss.data[0]
-                print('\r%5.1f   %5d    %0.4f   |  %0.4f  %0.4f | %0.4f  %6.4f | ... ' % \
+                print('\r%5.1f   %5d    %0.6f   |  %0.4f  %0.5f | %0.4f  %.5f | ... ' % \
                         (epoch + (it+1)/num_its, it+1, rate, smooth_loss, smooth_acc, train_loss, train_acc),\
                         end='',flush=True)
 
@@ -458,7 +510,7 @@ def run_train():
             net.eval()
             valid_predictions, valid_loss, valid_acc = predict_and_evaluate(net, valid_loader)
             print('\r',end='',flush=True)
-            log.write('%5.1f   %5d    %0.4f   |  %0.4f  %0.4f | %0.4f  %6.4f | %0.4f  %6.4f  |  %3.1f min \n' % \
+            log.write('%5.1f   %5d    %0.6f   |  %0.4f  %0.5f | %0.4f  %.5f | %0.4f  %.5f  |  %3.1f min \n' % \
                     (epoch + 1, it + 1, rate, smooth_loss, smooth_acc, train_loss, train_acc, valid_loss, valid_acc, time))
 
         if 0:
@@ -484,16 +536,17 @@ def run_train():
                 im_show('test',  results,  resize=1)
                 cv2.waitKey(1)
 
-        if epoch in epoch_save:
-            torch.save(net.state_dict(),out_dir +'/snap/%03d.pth'%epoch)
+        if epoch in epoch_save or valid_acc > best_val_acc:
+            torch.save(net.state_dict(),out_dir +'/snap/%03d_%.5f.pth'%(epoch, valid_acc))
             torch.save({
                 'state_dict': net.state_dict(),
                 'optimizer' : optimizer.state_dict(),
                 'epoch'     : epoch,
-            }, out_dir +'/checkpoint/%03d.pth'%epoch)
-        elif valid_acc > best_val_acc:
-            torch.save(net.state_dict(),out_dir +'/snap/best.pth')
+            }, out_dir +'/checkpoint/%03d_%.5f.pth'%(epoch, valid_acc))
+        if valid_acc > best_val_acc:
             best_val_acc = valid_acc
+            #torch.save(net.state_dict(),out_dir +'/snap/best.pth')
+            #best_val_acc = valid_acc
             ## https://github.com/pytorch/examples/blob/master/imagenet/main.py
 
 
@@ -579,7 +632,7 @@ def predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR):
     del net
 
 def run_predict():
-    predict(model_file=OUT_DIR +'/snap/best.pth', out_dir=OUT_DIR+'/submit/best')
+    predict(model_file=OUT_DIR +'/snap/232_0.99616.pth', out_dir=OUT_DIR+'/submit/99616')
     #predict(model_file=OUT_DIR +'/snap/095.pth', out_dir=OUT_DIR+'/submit/095')
     #predict(model_file=OUT_DIR +'/snap/085.pth', out_dir=OUT_DIR+'/submit/085')
 
@@ -728,10 +781,10 @@ def run_check_submit_csv():
 if __name__ == '__main__':
     print( '%s: calling main function ... ' % os.path.basename(__file__))
 
-    run_train()
+    #run_train()
     #run_predict()
     #run_ensemble()
-    #run_submit('best')
+    run_submit('99616')
     #run_check_submit_csv()
 
     print('\nsucess!')
