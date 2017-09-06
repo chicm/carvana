@@ -1,11 +1,11 @@
 from common import *
 from submit import *
 from dataset.carvana_cars import *
-from net.segmentation.my_unet import SoftDiceLoss, BCELoss2d, UNet_double_1024_6 as Net
+from net.segmentation.my_unet import SoftDiceLoss, BCELoss2d, DenseUnet1 as Net
 from net.tool import *
 import bcolz
 
-OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/m1024_1'
+OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/dense512'
 BLOCK_NUM = 51
 
 ## experiment setting here ----------------------------------------------------
@@ -277,7 +277,7 @@ def run_train():
 
     ## dataset ----------------------------------------
     log.write('** dataset setting **\n')
-    batch_size = 8
+    batch_size = 4
     train_dataset = KgCarDataset( 'train%dx%d_v0_4848'%(CARVANA_H,CARVANA_W),
                                   #'train%dx%d_5088'%(CARVANA_H,CARVANA_W),   #'train128x128_5088',  #'train_5088'
                                 transform=[

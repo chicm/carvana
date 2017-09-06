@@ -6,8 +6,8 @@ CARVANA_DIR       = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017'
 CARVANA_NUM_VIEWS = 16
 CARVANA_HEIGHT = 1280
 CARVANA_WIDTH  = 1918
-CARVANA_H = 1024
-CARVANA_W = 1024
+CARVANA_H = 512
+CARVANA_W = 512
 
 
 

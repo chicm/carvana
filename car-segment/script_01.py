@@ -18,6 +18,7 @@ def run_make_small_images(stage):
 
         img_file = img_list[n]
         img = cv2.imread(img_file)
+        print(img_file)
         img = cv2.resize(img,(W,H),interpolation=cv2.INTER_LINEAR)
         save_file = img_file.replace(img_dir, small_dir)
         cv2.imwrite(save_file,img)
@@ -160,8 +161,8 @@ if __name__ == '__main__':
     print( '%s: calling main function ... ' % os.path.basename(__file__))
 
     #run_make_small_masks()
-    run_make_small_images('train')
-    run_make_small_images('test')
+    run_make_small_images('train_hq')
+    #run_make_small_images('test')
     #run_remove_background()
 
     print('\nsucess!')

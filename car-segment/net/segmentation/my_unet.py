@@ -1077,7 +1077,189 @@ class UNet_double_1024_5 (nn.Module):
 
 
 
+class _DenseLayer(nn.Sequential):
+    def __init__(self, num_input_features, growth_rate, bn_size, drop_rate):
+        super(_DenseLayer, self).__init__()
+        self.add_module('norm.1', nn.BatchNorm2d(num_input_features)),
+        self.add_module('relu.1', nn.ReLU(inplace=True)),
+        self.add_module('conv.1', nn.Conv2d(num_input_features, bn_size *
+                        growth_rate, kernel_size=1, stride=1, bias=False)),
+        self.add_module('norm.2', nn.BatchNorm2d(bn_size * growth_rate)),
+        self.add_module('relu.2', nn.ReLU(inplace=True)),
+        self.add_module('conv.2', nn.Conv2d(bn_size * growth_rate, growth_rate,
+                        kernel_size=3, stride=1, padding=1, bias=False)),
+        self.drop_rate = drop_rate
 
+    def forward(self, x):
+        new_features = super(_DenseLayer, self).forward(x)
+        if self.drop_rate > 0:
+            new_features = F.dropout(new_features, p=self.drop_rate, training=self.training)
+        return torch.cat([x, new_features], 1)
+
+class _DenseBlock(nn.Sequential):
+    def __init__(self, num_layers, num_input_features, growth_rate, bn_size=4, drop_rate=0):
+        super(_DenseBlock, self).__init__()
+        for i in range(num_layers):
+            layer = _DenseLayer(num_input_features + i * growth_rate, growth_rate, bn_size, drop_rate)
+            self.add_module('denselayer%d' % (i + 1), layer)
+
+        self.of = num_input_features + num_layers * growth_rate
+
+class _TransitionDown(nn.Sequential):
+    def __init__(self, num_input_features, num_output_features):
+        super(_TransitionDown, self).__init__()
+        self.add_module('norm', nn.BatchNorm2d(num_input_features))
+        self.add_module('relu', nn.ReLU(inplace=True))
+        self.add_module('conv', nn.Conv2d(num_input_features, num_output_features,
+                                          kernel_size=1, stride=1, bias=False))
+        self.add_module('pool', nn.AvgPool2d(kernel_size=2, stride=2))
+        self.of = num_output_features
+
+class _TransitionUp(nn.Sequential):
+    def __init__(self, num_input_features, num_output_features):
+        super(_TransitionUp, self).__init__()
+        self.add_module('norm', nn.BatchNorm2d(num_input_features))
+        self.add_module('relu', nn.ReLU(inplace=True))
+        self.add_module('deconv', nn.ConvTranspose2d(num_input_features, num_output_features, kernel_size=3, stride=2, padding=1, output_padding=1))
+        self.of = num_output_features
+
+class DenseUnet1(nn.Module):
+    def __init__(self, in_shape, num_classes):
+        super(DenseUnet1, self).__init__()
+        in_channels, height, width = in_shape
+        self.block1 = _DenseBlock(4, 3, 6)
+        self.down1 = _TransitionDown(self.block1.of, self.block1.of // 2 )
+        
+        self.block2 = _DenseBlock(8, self.down1.of, 6)
+        self.down2 = _TransitionDown(self.block2.of, self.block2.of // 2)
+        
+        self.block3 = _DenseBlock(8, self.down2.of, 6)
+        self.down3 = _TransitionDown(self.block3.of, self.block3.of // 2)
+        
+        self.block4 = _DenseBlock(8, self.down3.of, 6)
+        self.down4 = _TransitionDown(self.block4.of, self.block4.of // 2)
+
+        self.block5 = _DenseBlock(8, self.down4.of, 6)
+        self.down5 = _TransitionDown(self.block5.of, self.block4.of // 2)
+
+        self.block6 = _DenseBlock(8, self.down5.of, 6)
+        self.down6 = _TransitionDown(self.block6.of, self.block4.of // 2)
+
+        self.center = _DenseBlock(8, self.down6.of, 6)
+
+        self.up6 = _TransitionUp(self.center.of, self.down6.of // 2)
+        self.ublock6 = _DenseBlock(8, self.up6.of+self.block6.of, 3)
+
+        self.up5 = _TransitionUp(self.ublock6.of, self.down5.of // 2)
+        self.ublock5 = _DenseBlock(8, self.up5.of+self.block5.of, 3)
+
+        self.up4 = _TransitionUp(self.ublock5.of, self.down4.of // 2)
+        self.ublock4 = _DenseBlock(8, self.up4.of+self.block4.of, 3)
+
+        self.up3 = _TransitionUp(self.ublock4.of, self.down3.of // 2)
+        self.ublock3 = _DenseBlock(8, self.up3.of+self.block3.of, 3)
+
+        self.up2 = _TransitionUp(self.ublock3.of, self.down2.of // 2)
+        self.ublock2 = _DenseBlock(8, self.up2.of+self.block2.of, 3)
+
+        self.up1 = _TransitionUp(self.ublock2.of, self.down1.of // 2)
+        self.ublock1 = _DenseBlock(8, self.up1.of+self.block1.of, 3)
+
+        self.classifier = nn.Conv2d(self.ublock1.of, num_classes, kernel_size=1, stride=1, padding=0 )
+
+    def forward(self, x):
+        db1 = self.block1(x)
+        out = self.down1(db1)
+        #print(out.size())
+        
+        db2 = self.block2(out)
+        out = self.down2(db2)
+        #print(out.size())
+        
+        db3 = self.block3(out)
+        out = self.down3(db3)
+        #print(out.size())
+        
+        db4 = self.block4(out)
+        out = self.down4(db4)
+        #print(out.size())
+        
+        db5 = self.block5(out)
+        out = self.down5(db5)
+        #print(out.size())
+        
+        db6 = self.block6(out)
+        out = self.down6(db6)
+        #print(out.size())
+
+        out = self.center(out)
+
+        out = self.up6(out)
+        #print(out.size())
+        out = torch.cat([out, db6], 1)
+        out = self.ublock6(out)
+        #print(out.size())
+
+        out = self.up5(out)
+        #print(out.size())
+        out = torch.cat([out, db5], 1)
+        out = self.ublock5(out)
+        #print(out.size())
+
+        out = self.up4(out)
+        #print(out.size())
+        out = torch.cat([out, db4], 1)
+        out = self.ublock4(out)
+        #print(out.size())
+
+        out = self.up3(out)
+        #print(out.size())
+        out = torch.cat([out, db3], 1)
+        out = self.ublock3(out)
+        #print(out.size())
+        
+        out = self.up2(out)
+        #print(out.size())
+        out = torch.cat([out, db2], 1)
+        out = self.ublock2(out)
+        #print(out.size())
+
+        out = self.up1(out)
+        #print(out.size())
+        out = torch.cat([out, db1], 1)
+        out = self.ublock1(out)
+        #print(out.size())
+
+        out = self.classifier(out)
+        #print(out.size())
+
+        return out
+
+def TransitionDown(inputs, n_filters, dropout_p=0.2):
+    """ Apply first a BN_ReLu_conv layer with filter size = 1, and a max pooling with a factor 2  """
+
+    l = BN_ReLU_Conv(inputs, n_filters, filter_size=1, dropout_p=dropout_p)
+    l = Pool2DLayer(l, 2, mode='max')
+
+    return l
+    # Note : network accuracy is quite similar with average pooling or without BN - ReLU.
+    # We can also reduce the number of parameters reducing n_filters in the 1x1 convolution
+
+
+def TransitionUp(skip_connection, block_to_upsample, n_filters_keep):
+    """
+    Performs upsampling on block_to_upsample by a factor 2 and concatenates it with the skip_connection """
+
+    # Upsample
+    l = ConcatLayer(block_to_upsample)
+    l = Deconv2DLayer(l, n_filters_keep, filter_size=3, stride=2,
+                      crop='valid', W=HeUniform(gain='relu'), nonlinearity=linear)
+    # Concatenate with skip connection
+    l = ConcatLayer([l, skip_connection], cropping=[None, None, 'center', 'center'])
+
+    return l
+    # Note : we also tried Subpixel Deconvolution without seeing any improvements.
+    # We can reduce the number of parameters reducing n_filters_keep in the Deconvolution
 
 
 
@@ -1267,8 +1449,8 @@ from torch.autograd import Variable
 if __name__ == '__main__':
     print( '%s: calling main function ... ' % os.path.basename(__file__))
 
-    batch_size  = 8
-    C,H,W = 3,1024,1024
+    batch_size  = 4
+    C,H,W = 3,512,512
 
     # if 0: # CrossEntropyLoss2d()
     #     inputs = torch.randn(batch_size,C,H,W)
@@ -1296,7 +1478,7 @@ if __name__ == '__main__':
         inputs = torch.randn(batch_size,C,H,W)
         labels = torch.LongTensor(batch_size,H,W).random_(1).type(torch.FloatTensor)
 
-        net = UNet_double_1024_6(in_shape=(C,H,W), num_classes=1).cuda().train()
+        net = DenseUnet1(in_shape=(C,H,W), num_classes=1).cuda().train()
         x = Variable(inputs).cuda()
         y = Variable(labels).cuda()
         logits = net.forward(x)
