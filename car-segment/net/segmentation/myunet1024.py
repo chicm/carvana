@@ -476,8 +476,8 @@ class UNet1024_3 (nn.Module):
         self.down1 = nn.Sequential(
             *make_conv_bn_relu(in_channels, 16, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(16, 16, kernel_size=3, stride=1, padding=1 ),
-            *make_conv_bn_relu(16, 16, kernel_size=3, stride=1, padding=1 ),
         )
+        self.down1pool = nn.Conv2d(16, 16, kernel_size=3, stride=2, padding=1, bias=False)
         #256
 
 
@@ -486,47 +486,46 @@ class UNet1024_3 (nn.Module):
         self.down2 = nn.Sequential(
             *make_conv_bn_relu(16, 32, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(32, 32, kernel_size=3, stride=1, padding=1 ),
-            *make_conv_bn_relu(32, 32, kernel_size=3, stride=1, padding=1 ),
         )
+        self.down2pool = nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1, bias=False)
         #128
 
         self.down3 = nn.Sequential(
             *make_conv_bn_relu(32, 64, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(64, 64, kernel_size=3, stride=1, padding=1 ),
-            *make_conv_bn_relu(64, 64, kernel_size=3, stride=1, padding=1 ),
         )
+        self.down3pool = nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1, bias=False)
         #64
 
         self.down4 = nn.Sequential(
             *make_conv_bn_relu(64,  128, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(128, 128, kernel_size=3, stride=1, padding=1 ),
-            *make_conv_bn_relu(128, 128, kernel_size=3, stride=1, padding=1 ),
         )
+        self.down4pool = nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1, bias=False)
         #32
 
         self.down5 = nn.Sequential(
             *make_conv_bn_relu(128, 256, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(256, 256, kernel_size=3, stride=1, padding=1 ),
-            *make_conv_bn_relu(256, 256, kernel_size=3, stride=1, padding=1 ),
         )
+        self.down5pool = nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1, bias=False)
         #16
 
         self.down6 = nn.Sequential(
             *make_conv_bn_relu(256,512, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(512,512, kernel_size=3, stride=1, padding=1 ),
-            *make_conv_bn_relu(512,512, kernel_size=3, stride=1, padding=1 ),
         )
+        self.down6pool = nn.Conv2d(512, 512, kernel_size=3, stride=2, padding=1, bias=False)
         #8
         
         self.down7 = nn.Sequential(
             *make_conv_bn_relu(512,1024, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(1024,1024, kernel_size=3, stride=1, padding=1 ),
-            *make_conv_bn_relu(1024,1024, kernel_size=3, stride=1, padding=1 ),
         )
+        self.down7pool = nn.Conv2d(1024, 1024, kernel_size=3, stride=2, padding=1, bias=False)
 
         self.center = nn.Sequential(
             *make_conv_bn_relu(1024, 2048, kernel_size=3, stride=1, padding=1 ),
-            *make_conv_bn_relu(2048,2048, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(2048,2048, kernel_size=3, stride=1, padding=1 ),
         )
         self.deconv7 = nn.ConvTranspose2d(2048, 2048, kernel_size=3, stride=2, padding=1, output_padding=1)
@@ -534,7 +533,6 @@ class UNet1024_3 (nn.Module):
             *make_conv_bn_relu(1024+2048,1024, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(     1024,1024, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(     1024,1024, kernel_size=3, stride=1, padding=1 ),
-            #nn.Dropout(p=0.10),
         )
         #16
         self.deconv6 = nn.ConvTranspose2d(1024, 1024, kernel_size=3, stride=2, padding=1, output_padding=1)
@@ -542,7 +540,6 @@ class UNet1024_3 (nn.Module):
             *make_conv_bn_relu(512+1024,512, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(     512,512, kernel_size=3, stride=1, padding=1 ),
             *make_conv_bn_relu(     512,512, kernel_size=3, stride=1, padding=1 ),
-            #nn.Dropout(p=0.10),
         )
         #16
         self.deconv5 = nn.ConvTranspose2d(512, 512, kernel_size=3, stride=2, padding=1, output_padding=1)
@@ -589,25 +586,31 @@ class UNet1024_3 (nn.Module):
 
         #1024
         down1 = self.down1(x)
-        out   = F.max_pool2d(down1, kernel_size=2, stride=2) #512
+        out   = self.down1pool(down1) #512
 
         down2 = self.down2(out)
-        out   = F.max_pool2d(down2, kernel_size=2, stride=2) #256
+        #out   = F.max_pool2d(down2, kernel_size=2, stride=2) #256
+        out   = self.down2pool(down2)
 
         down3 = self.down3(out)
-        out   = F.max_pool2d(down3, kernel_size=2, stride=2) #128
+        out   = self.down3pool(down3)
+        #out   = F.max_pool2d(down3, kernel_size=2, stride=2) #128
 
         down4 = self.down4(out)
-        out   = F.max_pool2d(down4, kernel_size=2, stride=2) #64
+        out   = self.down4pool(down4)
+        #out   = F.max_pool2d(down4, kernel_size=2, stride=2) #64
 
         down5 = self.down5(out)
-        out   = F.max_pool2d(down5, kernel_size=2, stride=2) #32
+        out   = self.down5pool(down5)
+        #out   = F.max_pool2d(down5, kernel_size=2, stride=2) #32
 
         down6 = self.down6(out)
-        out   = F.max_pool2d(down6, kernel_size=2, stride=2) # 16
+        out   = self.down6pool(down6)
+        #out   = F.max_pool2d(down6, kernel_size=2, stride=2) # 16
 	
         down7 = self.down7(out)
-        out   = F.max_pool2d(down7, kernel_size=2, stride=2) # 8
+        out   = self.down7pool(down7)
+        #out   = F.max_pool2d(down7, kernel_size=2, stride=2) # 8
 
         out   = self.center(out)
 	
@@ -638,12 +641,6 @@ class UNet1024_3 (nn.Module):
         out   = self.deconv1(out) #1024
         out   = torch.cat([down1, out, x],1)
         out   = self.up1(out)
-
-        #out   = F.upsample_bilinear(out, scale_factor=2) #1024
-        #x     = F.upsample_bilinear(x,   scale_factor=2)
-        #out   = torch.cat([x, out],1)
-        #out   = self.up0(out)
-
 
         out   = self.classify(out)
 
