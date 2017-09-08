@@ -467,7 +467,7 @@ class UNet1024_2 (nn.Module):
 
 class UNet1024_3 (nn.Module):
 
-    def __init__(self, in_shape, num_classes):
+    def __init__(self, in_shape, num_classes=1):
         super(UNet1024_3, self).__init__()
         in_channels, height, width = in_shape
 

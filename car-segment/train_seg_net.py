@@ -1,11 +1,12 @@
 from common import *
 from submit import *
 from dataset.carvana_cars import *
-from net.segmentation.myunet1024 import SoftDiceLoss, BCELoss2d, WeightedBCELoss2d, WeightedSoftDiceLoss, UNet1024_3 as Net
+from net.segmentation.myunet1024 import SoftDiceLoss, BCELoss2d, WeightedBCELoss2d, WeightedSoftDiceLoss
+from net.segmentation.myunet1024 import UNet1024_3 as Net
 from net.tool import *
 import bcolz
 
-OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024_3'
+OUT_DIR = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024_4'
 BLOCK_NUM = 51
 
 ## experiment setting here ----------------------------------------------------
@@ -17,15 +18,15 @@ def criterion_old(logits, labels):
 
 ## experiment setting here ----------------------------------------------------
 def criterion(logits, labels, is_weight=True):
-    a = F.avg_pool2d(labels, kernel_size=21, padding=10, stride=1)
-    ind = a.ge(0.05) * a.le(0.95)
+    a = F.avg_pool2d(labels, kernel_size=41, padding=20, stride=1)
+    ind = a.ge(0.01) * a.le(0.99)
     ind = ind.float()
     weights = Variable(torch.tensor.torch.ones(a.size())).cuda()
     
     if is_weight:
-        w0 = weights.data.sum()
-        weights = weights + ind * 4
-        w1 = weights.data.sum()
+        w0 = weights.sum()
+        weights = weights + ind * 2
+        w1 = weights.sum()
         weights = weights / w1 * w0
 
     l = WeightedSoftDiceLoss()(logits, labels, weights) +  WeightedBCELoss2d()(logits, labels, weights) 
@@ -258,8 +259,8 @@ def run_train():
 
     out_dir  = OUT_DIR
     #initial_checkpoint = None #'/root/share/project/kaggle-carvana-cars/results/xx5-UNet128_2_two-loss/checkpoint/020.pth'
-    initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024_3/checkpoint/018_0.99576.pth'
-    #initial_checkpoint = None
+    #initial_checkpoint = '/home/chicm/ml/kgdata/kaggle-carvana-cars-2017/results_1024_3/checkpoint/018_0.99576.pth'
+    initial_checkpoint = None
     #
 
 
@@ -343,7 +344,7 @@ def run_train():
     ## net ----------------------------------------
     log.write('** net setting **\n')
 
-    net = Net(in_shape=(3, H, W), num_classes=1)
+    net = Net(in_shape=(3, H, W))
     net.cuda()
 
     log.write('%s\n\n'%(type(net)))
@@ -367,8 +368,8 @@ def run_train():
         net.load_state_dict(checkpoint['state_dict'])
         print('loaded checkpoint:' + initial_checkpoint)
 
-    #optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)
-    optimizer = optim.Adam(net.parameters(), lr=0.01)
+    optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)
+    #optimizer = optim.Adam(net.parameters(), lr=0.01)
 
 
     #training ####################################################################3
@@ -542,7 +543,7 @@ def predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR):
     #out_dir  = OUT_DIR
     #model_file = out_dir +'/snap/final.pth'  #final
     #model_file = out_dir +'/snap/049.pth'  #final
-
+    print('predicting using ' + model_file)
     #logging, etc --------------------
     os.makedirs(out_dir,  exist_ok=True)
     #os.makedirs(out_dir+'/submit/results',  exist_ok=True)
@@ -557,7 +558,7 @@ def predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR):
 
     ## dataset ----------------------------
     log.write('** dataset setting **\n')
-    batch_size = 4
+    batch_size = 10
 
     test_dataset = KgCarDataset( 'test%dx%d_100064'%(CARVANA_H,CARVANA_W),
                                   is_label=False,
@@ -579,7 +580,7 @@ def predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR):
 
 
     ## net ----------------------------------------
-    net = Net(in_shape=(3, H, W), num_classes=1)
+    net = Net(in_shape=(3, H, W))
     net.load_state_dict(torch.load(model_file))
     print('loaded model file:{}'.format(model_file))
     net.cuda()
@@ -604,7 +605,7 @@ def predict(model_file=OUT_DIR +'/snap/final.pth', out_dir=OUT_DIR):
     del net
 
 def run_predict():
-    predict(model_file=OUT_DIR +'/snap/best.pth', out_dir=OUT_DIR+'/submit/best')
+    predict(model_file=OUT_DIR +'/snap/041.pth', out_dir=OUT_DIR+'/submit/041')
     #predict(model_file=OUT_DIR +'/snap/095.pth', out_dir=OUT_DIR+'/submit/095')
     #predict(model_file=OUT_DIR +'/snap/085.pth', out_dir=OUT_DIR+'/submit/085')
 
@@ -756,7 +757,7 @@ if __name__ == '__main__':
     run_train()
     #run_predict()
     #run_ensemble()
-    #run_submit('best')
+    #run_submit('041')
     #run_check_submit_csv()
 
     print('\nsucess!')
